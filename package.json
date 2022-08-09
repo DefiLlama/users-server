@@ -2,7 +2,8 @@
   "scripts": {
     "deploy:prod": "sls deploy --stage prod",
     "serve": "sls offline start",
-    "build": "sls webpack"
+    "build": "sls webpack",
+    "test": "ts-node test.js"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.101",

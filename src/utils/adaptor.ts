@@ -1,11 +1,17 @@
-import type { RowList, Row } from "postgres";
 import type { Chain } from "./constants";
 
 import fetch from "node-fetch";
 
 import sql from "./db";
 
-export declare type AdaptorExport = Record<Chain, () => Promise<string[]>>;
+type MaybePromise<T> = T | Promise<T>;
+export declare type AdaptorExport = Record<Chain, () => MaybePromise<string[]>>;
+
+interface IUserStats {
+  day: Date;
+  total_users: number;
+  unique_users: number;
+}
 
 const asyncForEach = async <T = any>(
   array: T[],
@@ -101,9 +107,10 @@ const runAdaptor = async (
   name: string,
   date: Date,
   { storeData } = { storeData: false }
-) => {
+): Promise<Record<Chain, IUserStats>> => {
   const adaptor: AdaptorExport = (await import(`./../adaptors/${name}`))
     .default;
+
   const promises: Promise<any>[] = [];
   const chains = Object.keys(adaptor) as Chain[];
   const day = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -130,7 +137,14 @@ const runAdaptor = async (
 
   if (storeData) await storeUserStats(name, res);
 
-  return res;
+  // Fix to make sure types are what we expect them to be,
+  Object.values(res).map((data) => {
+    data.unique_users = Number(data.unique_users);
+    data.total_users = Number(data.total_users);
+    data.day = new Date(data.day);
+  });
+
+  return res as Record<Chain, IUserStats>;
 };
 
 const queryUserStats = (chain: Chain, day: Date, addresses: Buffer[]) => {
