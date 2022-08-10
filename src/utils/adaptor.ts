@@ -1,4 +1,4 @@
-import type { Chain } from "./constants";
+import type { Chain } from "@defillama/sdk/build/general";
 
 import fetch from "node-fetch";
 
@@ -30,7 +30,7 @@ const asyncForEach = async <T = any>(
   return Promise.resolve(data);
 };
 
-const queryUserStatsSql = (chain: Chain, date: Date, addresses: Buffer[]) => {
+const queryUserStatsSql = (_chain: Chain, date: Date, addresses: Buffer[]) => {
   const nextDay = new Date(
     date.getFullYear(),
     date.getMonth(),
@@ -42,6 +42,8 @@ const queryUserStatsSql = (chain: Chain, date: Date, addresses: Buffer[]) => {
   const toTimestamp = Math.floor(nextDay / 1000);
   // @ts-ignore
   const fromTimestamp = Math.floor(day / 1000);
+
+  const chain = _chain === "avax" ? "avalanche" : _chain;
 
   return sql`
     WITH blocks AS (
@@ -155,9 +157,7 @@ const queryUserStats = (chain: Chain, day: Date, addresses: Buffer[]) => {
 
 /*
 (async () => {
-  console.log(
-    await runAdaptor("llamapay", new day("2022-07-01"), { storeData: true })
-  );
+  console.log(await runAdaptor("llamapay", new Date("2022-07-01")));
   await sql.end({ timeout: 5 });
   process.exit();
 })(); */

@@ -1,4 +1,4 @@
-import type { Chain } from "./constants";
+import type { Chain } from "@defillama/sdk/build/general";
 
 import sql from "./db";
 

@@ -1,72 +1,23 @@
-export declare type Chain =
-  | "ethereum"
-  | "bsc"
-  | "polygon"
-  | "heco"
-  | "fantom"
-  | "rsk"
-  | "tomochain"
-  | "xdai"
-  | "avalanche"
-  | "wan"
-  | "iotex"
-  | "harmony"
-  | "thundercore"
-  | "okexchain"
-  | "optimism"
-  | "arbitrum"
-  | "kcc"
-  | "celo"
-  | "moonriver"
-  | "shiden"
-  | "palm"
-  | "energyweb"
-  | "energi"
-  | "songbird"
-  | "hpb"
-  | "gochain"
-  | "ethereumclassic"
-  | "xdaiarb"
-  | "kardia"
-  | "fuse"
-  | "smartbch"
-  | "elastos"
-  | "hoo"
-  | "fusion"
-  | "aurora"
-  | "ronin"
-  | "boba"
-  | "cronos"
-  | "polis"
-  | "zyx"
-  | "telos"
-  | "metis"
-  | "ubiq"
-  | "velas"
-  | "callisto"
-  | "csc"
-  | "nahmii"
-  | "liquidchain"
-  | "meter"
-  | "theta"
-  | "oasis"
-  | "syscoin"
-  | "moonbeam"
-  | "curio"
-  | "astar"
-  | "godwoken"
-  | "evmos"
-  | "conflux"
-  | "milkomeda"
-  | "dfk"
-  | "bittorrent"
-  | "findora"
-  | "candle"
-  | "lachain"
-  | "reichain"
-  | "rei"
-  | "clover"
-  | "echelon"
-  | "multivac"
-  | "sx"
-  | "nova";
+import {
+  ARBITRUM,
+  AVAX,
+  BSC,
+  CELO,
+  ETHEREUM,
+  FANTOM,
+  HARMONY,
+  OPTIMISM,
+  POLYGON,
+} from "../helpers/chains";
+
+export const SUPPORTED_CHAINS = [
+  ETHEREUM,
+  AVAX,
+  BSC,
+  FANTOM,
+  POLYGON,
+  ARBITRUM,
+  HARMONY,
+  CELO,
+  OPTIMISM,
+];
