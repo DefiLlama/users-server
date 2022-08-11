@@ -1,5 +1,57 @@
 import { ETHEREUM, POLYGON } from "../../helpers/chains";
+import { fetchFunctionCalls } from "../../helpers/functions";
 
+const getLPs = (chain, address) => {
+  return (blocks) => {
+    return {
+      deposits: fetchFunctionCalls({
+        functionNames: ["addLiquidity", "addLiquidityETH"],
+        chain,
+        address,
+        blocks,
+      }),
+      withdrawals: fetchFunctionCalls({
+        functionNames: [
+          "removeLiquidity",
+          "removeLiquidityETH",
+          "removeLiquidityETHWithPermit",
+        ],
+        chain,
+        address,
+        blocks,
+      }),
+    };
+  };
+};
+
+(async () => {
+  const blocks = [15004360, 15004361];
+  const ret = getLPs(
+    ETHEREUM,
+    "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
+  )(blocks);
+
+  const [deposits, withdrawals] = await Promise.all([
+    ret.deposits,
+    ret.withdrawals,
+  ]);
+  ret.withdrawals = withdrawals;
+  ret.deposits = deposits;
+
+  console.log(`sushiswap for blocks ${blocks}`);
+  console.log("total LP depositers", ret.deposits.length);
+  console.log("unique LP depositers", new Set(ret.deposits).size);
+  console.log("total LP withdrawers", ret.withdrawals.length);
+  console.log("unique LP withdrawers", new Set(ret.withdrawals).size);
+})();
+
+export default {
+  [ETHEREUM]: {
+    ...getLPs(ETHEREUM, "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"),
+  },
+};
+
+/*
 export default {
   [ETHEREUM]: () => [
     "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd", // Masterchef
@@ -14,4 +66,4 @@ export default {
     "0x0319000133d3ada02600f0875d2cf03d442c3367", // BentoBoxV1
   ],
   // TODO: add the other chains.
-};
+};*/
