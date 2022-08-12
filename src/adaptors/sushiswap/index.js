@@ -1,5 +1,6 @@
-import { ETHEREUM, POLYGON } from "../../helpers/chains";
 import { fetchFunctionCalls } from "../../helpers/functions";
+import { ETHEREUM, POLYGON } from "../../helpers/chains";
+import { DEXES } from "../../helpers/categories";
 
 const getLPs = (chain, address) => {
   return (blocks) => {
@@ -49,6 +50,7 @@ export default {
   [ETHEREUM]: {
     ...getLPs(ETHEREUM, "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"),
   },
+  category: DEXES,
 };
 
 /*
