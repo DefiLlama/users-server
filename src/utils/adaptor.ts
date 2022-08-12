@@ -30,7 +30,7 @@ const asyncForEach = async <T = any>(
   return Promise.resolve(data);
 };
 
-const queryUserStatsSql = (_chain: Chain, date: Date, addresses: Buffer[]) => {
+const queryUserStatsSql = (chain: Chain, date: Date, addresses: Buffer[]) => {
   const nextDay = new Date(
     date.getFullYear(),
     date.getMonth(),
@@ -42,8 +42,6 @@ const queryUserStatsSql = (_chain: Chain, date: Date, addresses: Buffer[]) => {
   const toTimestamp = Math.floor(nextDay / 1000);
   // @ts-ignore
   const fromTimestamp = Math.floor(day / 1000);
-
-  const chain = _chain === "avax" ? "avalanche" : _chain;
 
   return sql`
     WITH blocks AS (
