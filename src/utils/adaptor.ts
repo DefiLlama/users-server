@@ -1,14 +1,29 @@
 import type { Chain } from "@defillama/sdk/build/general";
 
-import fetch from "node-fetch";
+import { queryBlocksOnDay, queryFunctionCalls } from "./wrappa/postgres/query";
+import { CATEGORY_USER_EXPORTS } from "../helpers/categories";
+import { queryUserStatsLambda } from "./wrappa/lambda/query";
+import { queryUserStats } from "./wrappa/postgres/query";
+import { addressToPSQLNative } from "./address";
+import { writeableSql } from "./db";
 
-import sql from "./db";
+interface IFunctionCall {
+  chain: Chain;
+  address: string;
+  functionNames: string[];
+  blocks: number[];
+}
 
-type MaybePromise<T> = T | Promise<T>;
-export declare type AdaptorExport = Record<Chain, () => MaybePromise<string[]>>;
+type MaybePromiseFunction<T> = () => T | Promise<T>;
+export declare type AdaptorExport = {
+  [k in Chain]:
+    | { [u: string]: IFunctionCall }
+    | {
+        all: MaybePromiseFunction<string[]>;
+      };
+} & { category: string };
 
 interface IUserStats {
-  day: Date;
   total_users: number;
   unique_users: number;
 }
@@ -30,134 +45,125 @@ const asyncForEach = async <T = any>(
   return Promise.resolve(data);
 };
 
-const queryUserStatsSql = (chain: Chain, date: Date, addresses: Buffer[]) => {
-  const nextDay = new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate() + 1
-  );
-  const day = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-  // @ts-ignore
-  const toTimestamp = Math.floor(nextDay / 1000);
-  // @ts-ignore
-  const fromTimestamp = Math.floor(day / 1000);
-
-  return sql`
-    WITH blocks AS (
-      SELECT
-        timestamp,
-        number
-      FROM
-        ${sql(chain)}.blocks
-      WHERE
-        timestamp < to_timestamp(${toTimestamp})
-        AND timestamp >= to_timestamp(${fromTimestamp})
-    ),
-    txs AS (
-      SELECT
-        from_address AS "user",
-        timestamp
-      FROM
-        ${sql(chain)}.transactions
-        INNER JOIN blocks ON number = block_number
-      WHERE
-        to_address IN ${sql(addresses)}
-        AND success
-    )
-    SELECT
-      date_trunc('day', timestamp) AS "day",
-      count("user") AS "total_users",
-      count(DISTINCT "user") AS "unique_users"
-    FROM
-      txs
-    GROUP BY
-      1
-    `;
-};
-
-const queryUserStatsLambda = async (
-  chain: Chain,
-  date: Date,
-  addresses: Buffer[]
-) => {
-  return (
-    await fetch(
-      `https://315jy324kl.execute-api.eu-central-1.amazonaws.com/prod/run/adaptor/stats/${chain}?` +
-        new URLSearchParams({
-          addresses: addresses.map((x) => "0x" + x.toString("hex")),
-          day: date.toISOString().substring(0, 10),
-        })
-    )
-  ).json();
-};
-
 const storeUserStats = async (
   adaptor: string,
-  data: { [k: string]: Record<string, string> }
+  data: Record<Chain, Record<string, IUserStats>>,
+  day: Date
 ) => {
-  const values = Object.entries(data).map((x) =>
-    Object.assign({ adaptor, chain: x[0] }, x[1])
+  const values = Object.entries(data).flatMap(([chain, _x]) =>
+    Object.entries(_x).map(([column, stats]) => {
+      return { adaptor, day, chain, column_type: column, ...stats };
+    })
   );
 
-  return sql`INSERT INTO users.aggregate_data ${sql(values)}`;
+  return writeableSql`INSERT INTO users.aggregate_data ${writeableSql(values)}`;
 };
 
 const runAdaptor = async (
   name: string,
   date: Date,
   { storeData } = { storeData: false }
-): Promise<Record<Chain, IUserStats>> => {
+): Promise<Record<Chain, Record<string, IUserStats>>> => {
   const adaptor: AdaptorExport = (await import(`./../adaptors/${name}`))
     .default;
 
   const promises: Promise<any>[] = [];
-  const chains = Object.keys(adaptor) as Chain[];
+  const chains = Object.keys(adaptor).filter(
+    (x) => x !== "category"
+  ) as Chain[];
   const day = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const exportKeys: string[] | undefined =
+    CATEGORY_USER_EXPORTS?.[
+      adaptor.category as keyof typeof CATEGORY_USER_EXPORTS
+    ];
 
   await asyncForEach(chains, async (chain) => {
-    // TODO(blaze): validate addresses
-    const addresses = (await adaptor[chain]()).map((x) =>
-      Buffer.from(x.slice(2), "hex")
-    );
+    const blocks = await queryBlocksOnDay(chain, day);
+    if (blocks.length == 0)
+      throw new Error(`db rugged for date ${day} for chain ${chain}`);
 
-    promises.push(queryUserStats(chain, date, addresses));
+    const userExports = adaptor[chain];
+
+    if (exportKeys !== undefined && typeof userExports.all !== "function") {
+      promises.push(
+        Promise.all(
+          exportKeys.flatMap((key) => {
+            const exports = userExports[
+              key as keyof typeof userExports
+            ] as IFunctionCall;
+
+            return queryFunctionCalls(
+              chain,
+              addressToPSQLNative(exports.address),
+              exports.functionNames,
+              blocks
+            );
+          })
+        )
+      );
+    } else {
+      if (typeof userExports.all !== "function")
+        throw new Error(`incorrect exports: ${userExports} for ${adaptor}`);
+
+      // Either the `category` is not set or `all` is set.
+      const addresses = (await userExports.all()).map((x) =>
+        addressToPSQLNative(x)
+      );
+
+      promises.push(
+        process.env.MODE === "lambda"
+          ? queryUserStats(chain, addresses, blocks)
+          : queryUserStatsLambda(chain, addresses, day)
+      );
+    }
   });
 
   const resolved = await Promise.all(promises);
-  const res = Object.fromEntries(
-    chains.map((_, i) => {
-      // Return a default value.
-      if (!resolved[i][0])
-        return [chains[i], { day, total_users: 0, unique_users: 0 }];
 
-      return [chains[i], resolved[i][0]];
+  const res = Object.fromEntries(
+    resolved.map((chainData, i) => {
+      if (exportKeys !== undefined && Array.isArray(chainData)) {
+        return [
+          chains[i],
+          Object.fromEntries(
+            exportKeys.map((key, j) => {
+              if (!chainData[j])
+                return [key, { total_users: 0, unique_users: 0 }];
+
+              return [key, chainData[j]];
+            })
+          ),
+        ];
+      } else {
+        return [
+          chains[i],
+          { all: chainData || { total_users: 0, unique_users: 0 } },
+        ];
+      }
+    })
+  ) as Record<Chain, Record<string, IUserStats>>;
+
+  // Fix to make sure types are what we expect them to be,
+  Object.values(res).map((x) =>
+    Object.values(x).map((data) => {
+      data.unique_users = Number(data.unique_users);
+      data.total_users = Number(data.total_users);
     })
   );
 
-  if (storeData) await storeUserStats(name, res);
+  if (storeData) await storeUserStats(name, res, day);
 
-  // Fix to make sure types are what we expect them to be,
-  Object.values(res).map((data) => {
-    data.unique_users = Number(data.unique_users);
-    data.total_users = Number(data.total_users);
-    data.day = new Date(data.day);
-  });
-
-  return res as Record<Chain, IUserStats>;
+  return res as Record<Chain, Record<string, IUserStats>>;
 };
 
-const queryUserStats = (chain: Chain, day: Date, addresses: Buffer[]) => {
-  return process.env.MODE === "lambda"
-    ? queryUserStatsSql(chain, day, addresses)
-    : queryUserStatsLambda(chain, day, addresses);
-};
-
-/*
+/* 
 (async () => {
-  console.log(await runAdaptor("llamapay", new Date("2022-07-01")));
+  console.log(
+    await runAdaptor("sushiswap", new Date("2022-07-22"), { storeData: false })
+  );
   await sql.end({ timeout: 5 });
+  await writeableSql.end({ timeout: 5 });
   process.exit();
 })(); */
 
-export { runAdaptor, queryUserStats };
+export { runAdaptor };
