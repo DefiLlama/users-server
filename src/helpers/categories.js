@@ -30,8 +30,8 @@ const ORACLE = "Oracle";
 
 // What each category *may* export for detailed user metrics.
 const CATEGORY_USER_EXPORTS = {
-  DEXES: ["deposits", "withdrawals", "traders"],
-  LENDING: ["borrows", "lendings"],
+  [DEXES]: ["deposits", "withdrawals", "traders"],
+  [LENDING]: ["borrows", "lendings"],
 };
 
 export {
