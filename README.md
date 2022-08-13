@@ -8,7 +8,7 @@ Tracks user metrics relating to smart contracts
 2. Fork this repository
 3. Create a new folder within [src/adaptors/](src/adaptors/) with your protocol name (use your project `slug` from `https://api.llama.fi/protocols`)
 4. Write an adaptor for your protocol (tutorial below)
-5. Test your adaptor by running `node test.js YOUR_ADAPTOR` (remember to install dependencies with `npm i` first!)
+5. Test your adaptor by running `ts-node test.js YOUR_ADAPTOR` (remember to install dependencies with `npm i` first!)
 6. Submit a PR
 
 ### Adaptors
