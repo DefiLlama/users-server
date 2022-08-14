@@ -31,11 +31,11 @@ const queryBlocksOnDay = async (
   date: Date
 ): Promise<number[]> => {
   const nextDay = new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate() + 1
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1)
   );
-  const day = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  );
 
   const toTimestamp = Math.floor(nextDay.getTime() / 1000);
   const fromTimestamp = Math.floor(day.getTime() / 1000);

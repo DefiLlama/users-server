@@ -89,9 +89,7 @@ const verifyBlocks = async (chain: Chain, day: Date, blocks: number[]) => {
     throw new Error(`${maxBlock} and ${minBlock} wrong order for timestamp?`);
 
   const nextDay = new Date(
-    day.getFullYear(),
-    day.getMonth(),
-    day.getDate() + 1
+    Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate() + 1)
   );
 
   const toTimestamp = Math.floor(nextDay.getTime() / 1000);
@@ -122,7 +120,9 @@ const runAdaptor = async (
     CATEGORY_USER_EXPORTS?.[
       adaptor.category as keyof typeof CATEGORY_USER_EXPORTS
     ];
-  const day = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  );
   const promises: Promise<any>[] = [];
 
   await asyncForEach(chains, async (chain) => {
