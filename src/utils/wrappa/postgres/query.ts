@@ -37,10 +37,8 @@ const queryBlocksOnDay = async (
   );
   const day = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-  // @ts-ignore
-  const toTimestamp = Math.floor(nextDay / 1000);
-  // @ts-ignore
-  const fromTimestamp = Math.floor(day / 1000);
+  const toTimestamp = Math.floor(nextDay.getTime() / 1000);
+  const fromTimestamp = Math.floor(day.getTime() / 1000);
 
   return (
     await sql`
@@ -74,6 +72,7 @@ const queryFunctionCalls = async (
       WHERE
         input_function_name IN ${sql(functionNames)}
         AND to_address = ${address}
+        AND success
     ) AS _
   `
   )[0];
