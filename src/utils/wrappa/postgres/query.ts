@@ -12,6 +12,11 @@ interface IUserStatsResponse {
   new_users?: number;
 }
 
+interface IUserStats {
+  total_users: number;
+  unique_users: number;
+}
+
 const queryStoredUserStats = async (
   adaptor: string,
   { day, chain }: { day?: Date; chain?: Chain }
@@ -26,10 +31,7 @@ const queryStoredUserStats = async (
   `;
 };
 
-const queryBlocksOnDay = async (
-  chain: Chain,
-  date: Date
-): Promise<number[]> => {
+const queryBlocksOnDay = async (chain: Chain, date: Date) => {
   const nextDay = new Date(
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1)
   );
@@ -41,7 +43,7 @@ const queryBlocksOnDay = async (
   const fromTimestamp = Math.floor(day.getTime() / 1000);
 
   return (
-    await sql`
+    await sql<{ number: number }[]>`
       SELECT
         number::integer
       FROM
@@ -60,7 +62,7 @@ const queryFunctionCalls = async (
   blocks: number[]
 ) => {
   return (
-    await sql`
+    await sql<IUserStats[]>`
     SELECT
       count("user") AS "total_users",
       count(DISTINCT "user") AS "unique_users"
@@ -84,7 +86,7 @@ const queryUserStats = async (
   blocks: number[]
 ) => {
   return (
-    await sql`
+    await sql<IUserStats[]>`
     SELECT
       count("user") AS "total_users",
       count(DISTINCT "user") AS "unique_users"
@@ -102,9 +104,30 @@ const queryUserStats = async (
   )[0];
 };
 
+const queryMissingFunctionNames = async (
+  chain: Chain,
+  addresses: Buffer[],
+  blocks: number[]
+) => {
+  return (
+    await sql<{ count: number }[]>`
+    SELECT
+      count(*)
+    FROM
+      unnest(${sql.array(blocks)}::bigint[]) blocks
+      INNER JOIN ${sql(chain)}.transactions ON block_number = blocks
+    WHERE
+      to_address IN ${sql(addresses)}
+      AND input_function_name IS NULL
+      AND success
+  `
+  )[0].count;
+};
+
 export {
   queryStoredUserStats,
   queryUserStats,
   queryBlocksOnDay,
   queryFunctionCalls,
+  queryMissingFunctionNames,
 };
