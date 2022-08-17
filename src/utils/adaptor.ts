@@ -59,7 +59,6 @@ const storeUserStats = async (
   const values = Object.entries(data).flatMap(([chain, _x]) =>
     Object.entries(_x).map(([column, stats]) => {
       if (column === "all") allKeyExists = true;
-
       return { adaptor, day, chain, column_type: column, ...stats };
     })
   );
@@ -190,6 +189,8 @@ const runAdaptor = async (
 
     if (exportKeys !== undefined && Object.keys(userExports).length > 1) {
       const proms = exportKeys.flatMap((key) => {
+        if (key === "all") return;
+
         const exports = userExports[
           key as keyof typeof userExports
         ] as IFunctionCall;

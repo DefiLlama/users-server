@@ -9,10 +9,10 @@ import { runAdaptor } from "./src/utils/adaptor";
   }
 
   const yesterday = new Date(Date.now() - 864e5);
-  /*const _3daysago = new Date(Date.now() - 864e5 * 3);
+  const _3daysago = new Date(Date.now() - 864e5 * 3);
   const _10daysago = new Date(Date.now() - 864e5 * 10);
-  const _50daysago = new Date(Date.now() - 864e5 * 50);*/
-  const days = [yesterday /*, _3daysago, _10daysago, _50daysago */];
+  const _50daysago = new Date(Date.now() - 864e5 * 50);
+  const days = [yesterday, _3daysago, _10daysago, _50daysago];
 
   const args = {
     ignoreChainRugs: true,
@@ -20,9 +20,9 @@ import { runAdaptor } from "./src/utils/adaptor";
 
   const res = await Promise.all([
     runAdaptor(process.argv[2], yesterday, args),
-    /* runAdaptor(process.argv[2], _3daysago, args),
+    runAdaptor(process.argv[2], _3daysago, args),
     runAdaptor(process.argv[2], _10daysago, args),
-    runAdaptor(process.argv[2], _50daysago, args), */
+    runAdaptor(process.argv[2], _50daysago, args),
   ]);
 
   res.forEach((userStats, i) => {
