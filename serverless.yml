@@ -10,7 +10,7 @@ provider:
   timeout: 10
   region: eu-central-1
   endpointType: REGIONAL # Set to regional because the api gateway will be behind a cloudfront distribution
-  stage: dev # Default to dev if no stage is specified
+  stage: prod # Default to dev if no stage is specified
   tracing: # Enable X-Ray tracing (debugging)
     apiGateway: true
     lambda: true
@@ -55,7 +55,7 @@ functions:
     events:
       - http:
           path: /run/adaptor/stats/{chain}
-          method: get
+          method: post
   getUserStats:
     handler: src/handlers/getUserStats.default
     events:

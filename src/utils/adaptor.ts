@@ -8,7 +8,6 @@ import {
   queryMissingFunctionNames,
 } from "./wrappa/postgres/query";
 import { CATEGORY_USER_EXPORTS } from "../helpers/categories";
-import { queryUserStatsLambda } from "./wrappa/lambda/query";
 import { queryUserStats } from "./wrappa/postgres/query";
 import { addressToPSQLNative } from "./address";
 import { writeableSql } from "./db";
@@ -114,10 +113,15 @@ const verifyBlocks = async (chain: Chain, day: Date, blocks: number[]) => {
 const runAdaptor = async (
   name: string,
   date: Date,
-  { storeData, ignoreChainRugs } = { storeData: false, ignoreChainRugs: false }
+  { storeData, ignoreChainRugs, adaptorExports } = {
+    storeData: false,
+    ignoreChainRugs: false,
+    adaptorExports: false,
+  }
 ): Promise<Record<Chain, Record<string, IUserStats>>> => {
-  const adaptor: AdaptorExport = (await import(`./../adaptors/${name}`))
-    .default;
+  const adaptor: AdaptorExport = adaptorExports
+    ? adaptorExports
+    : (await import(`./../adaptors/${name}`)).default;
 
   const chains = Object.keys(adaptor).filter(
     (x) => x !== "category"
@@ -182,10 +186,7 @@ const runAdaptor = async (
       );
     }
 
-    prom =
-      process.env.MODE === "lambda"
-        ? queryUserStats(chain, addresses, blocks)
-        : queryUserStatsLambda(chain, addresses, day);
+    prom = queryUserStats(chain, addresses, blocks);
 
     if (exportKeys !== undefined && Object.keys(userExports).length > 1) {
       const proms = exportKeys.flatMap((key) => {

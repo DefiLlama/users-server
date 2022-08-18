@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { runAdaptor } from "./src/utils/adaptor";
+import { runAdaptorLambda } from "./src/utils/wrappa/lambda/adaptor";
 
 (async () => {
   if (process.argv.length < 3) {
@@ -14,21 +14,22 @@ import { runAdaptor } from "./src/utils/adaptor";
   const _50daysago = new Date(Date.now() - 864e5 * 50);
   const days = [yesterday, _3daysago, _10daysago, _50daysago];
 
-  const args = {
-    ignoreChainRugs: true,
-  };
+  const exports = (await import(`./src/adaptors/${process.argv[2]}`)).default;
 
   const res = await Promise.all([
-    runAdaptor(process.argv[2], yesterday, args),
-    runAdaptor(process.argv[2], _3daysago, args),
-    runAdaptor(process.argv[2], _10daysago, args),
-    runAdaptor(process.argv[2], _50daysago, args),
+    runAdaptorLambda(process.argv[2], yesterday, exports),
+    runAdaptorLambda(process.argv[2], _3daysago, exports),
+    runAdaptorLambda(process.argv[2], _10daysago, exports),
+    runAdaptorLambda(process.argv[2], _50daysago, exports),
   ]);
 
   res.forEach((userStats, i) => {
     const day = days[i].toDateString();
     let uniqueUsers = 0;
     let totalUsers = 0;
+
+    // TODO: error out?
+    if (userStats.message !== undefined) console.error(userStats);
 
     console.log(`------ ${day} ------\n`);
     for (const [chain, stats] of Object.entries(userStats)) {
