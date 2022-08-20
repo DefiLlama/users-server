@@ -54,7 +54,7 @@ functions:
     handler: src/handlers/runAdaptorUserStats.default
     events:
       - http:
-          path: /run/adaptor/stats/{chain}
+          path: /run/adaptor/stats/{name}
           method: post
   getUserStats:
     handler: src/handlers/getUserStats.default

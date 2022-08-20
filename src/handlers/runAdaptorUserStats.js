@@ -9,16 +9,25 @@ export default wrap(async (event) => {
   let day = event.queryStringParameters?.day;
   day = day ? new Date(day) : new Date();
 
+  const warnings = [];
+  const logger = (msg) => {
+    warnings.push(msg);
+    console.error(msg);
+  };
+
   try {
-    return successResponse(
-      await runAdaptor(name, day, {
+    return successResponse({
+      ...(await runAdaptor(name, day, {
         ignoreChainRugs: true,
         adaptorExports: exports,
-      })
-    );
+        log: logger,
+      })),
+      warnings: warnings.join("\n"),
+    });
   } catch (e) {
     return errorResponse({
       message: e.toString(),
+      warnings: warnings.join("\n"),
     });
   }
 });

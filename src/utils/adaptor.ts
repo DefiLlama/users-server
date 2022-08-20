@@ -22,7 +22,7 @@ interface IFunctionCall {
 type MaybePromiseFunction<T> = () => T | Promise<T>;
 export declare type AdaptorExport = {
   [k in Chain]: { [u: string]: IFunctionCall } & {
-    all: MaybePromiseFunction<string[]>;
+    all: MaybePromiseFunction<string[]> | string[];
   };
 } & { category: string };
 
@@ -113,10 +113,11 @@ const verifyBlocks = async (chain: Chain, day: Date, blocks: number[]) => {
 const runAdaptor = async (
   name: string,
   date: Date,
-  { storeData, ignoreChainRugs, adaptorExports } = {
+  { storeData, ignoreChainRugs, adaptorExports, log } = {
     storeData: false,
     ignoreChainRugs: false,
     adaptorExports: false,
+    log: console.error,
   }
 ): Promise<Record<Chain, Record<string, IUserStats>>> => {
   const adaptor: AdaptorExport = adaptorExports
@@ -140,7 +141,7 @@ const runAdaptor = async (
     if (blocks.length == 0) {
       const msg = `db rugged for date ${day} for chain ${chain}`;
 
-      if (ignoreChainRugs) return console.error(msg);
+      if (ignoreChainRugs) return log(msg);
       else throw new Error(msg);
     }
 
@@ -150,7 +151,7 @@ const runAdaptor = async (
       try {
         await verifyBlocks(chain, day, blocks);
       } catch (e) {
-        return console.error(e);
+        return log(e);
       }
     } else {
       await verifyBlocks(chain, day, blocks);
@@ -158,6 +159,7 @@ const runAdaptor = async (
 
     let pushedProm = false;
     let prom: Promise<any>;
+    let addresses: Buffer[];
 
     const userExports = adaptor[chain];
     if (exportKeys.length == Object.keys(userExports).length + 1)
@@ -167,9 +169,11 @@ const runAdaptor = async (
         `
       );
 
-    const addresses = (await userExports.all()).map((x) =>
-      addressToPSQLNative(x)
-    );
+    if (typeof userExports.all === "undefined")
+      throw new Error(`${name} does not export an 'all' key for ${chain}`);
+    else if (typeof userExports.all === "function")
+      addresses = (await userExports.all()).map((x) => addressToPSQLNative(x));
+    else addresses = userExports.all.map((x) => addressToPSQLNative(x));
 
     const missingFns = await queryMissingFunctionNames(
       chain,
@@ -178,10 +182,8 @@ const runAdaptor = async (
     );
 
     if (missingFns !== 0) {
-      console.error(
-        `${name} has ${missingFns} missing decoded txs on ${chain}.`
-      );
-      console.error(
+      log(`${name} has ${missingFns} missing decoded txs on ${chain}.`);
+      log(
         `This MAY affect categorized user metrics (if you rely on 'functionNames')\n`
       );
     }
@@ -220,7 +222,8 @@ const runAdaptor = async (
   const res = Object.fromEntries(
     resolved.map((chainData, i) => {
       if (exportKeys !== undefined && Array.isArray(chainData)) {
-        let keys = exportKeys;
+        // Hack to make deep copy of `exportKeys`.
+        let keys: string[] = JSON.parse(JSON.stringify(exportKeys));
 
         if (chainData.length > exportKeys.length + 1)
           throw new Error(
@@ -271,4 +274,4 @@ const runAdaptor = async (
   process.exit();
 })(); */
 
-export { runAdaptor };
+export { runAdaptor, asyncForEach };

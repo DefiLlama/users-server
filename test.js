@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { runAdaptorLambda } from "./src/utils/wrappa/lambda/adaptor";
+import { asyncForEach } from "./src/utils/adaptor";
 
 (async () => {
   if (process.argv.length < 3) {
@@ -16,6 +17,20 @@ import { runAdaptorLambda } from "./src/utils/wrappa/lambda/adaptor";
 
   const exports = (await import(`./src/adaptors/${process.argv[2]}`)).default;
 
+  // Resolve all function calls due to passing data to lambda. No RCE today!
+  await asyncForEach(Object.keys(exports), async (chain) => {
+    if (chain === "category") return;
+
+    const adaptorExport = exports[chain];
+
+    if (typeof adaptorExport.all === "undefined")
+      throw new Error(
+        `${process.argv[2]} does not export an 'all' key for ${chain}`
+      );
+
+    exports[chain].all = await adaptorExport.all();
+  });
+
   const res = await Promise.all([
     runAdaptorLambda(process.argv[2], yesterday, exports),
     runAdaptorLambda(process.argv[2], _3daysago, exports),
@@ -25,11 +40,14 @@ import { runAdaptorLambda } from "./src/utils/wrappa/lambda/adaptor";
 
   res.forEach((userStats, i) => {
     const day = days[i].toDateString();
-    let uniqueUsers = 0;
-    let totalUsers = 0;
 
-    // TODO: error out?
-    if (userStats.message !== undefined) console.error(userStats);
+    if (typeof userStats.warnings === "string") {
+      console.log(userStats.warnings);
+      delete userStats.warnings;
+    }
+
+    if (userStats.message !== undefined)
+      return console.error(userStats.message);
 
     console.log(`------ ${day} ------\n`);
     for (const [chain, stats] of Object.entries(userStats)) {
@@ -38,15 +56,8 @@ import { runAdaptorLambda } from "./src/utils/wrappa/lambda/adaptor";
         console.log(`- ${column} -`);
         console.log(" Total Users".padEnd(25, " "), data.total_users);
         console.log(" Unique Users".padEnd(25, " "), data.unique_users);
-
-        uniqueUsers += data.unique_users;
-        totalUsers += data.total_users;
       }
     }
-
-    console.log("\n------ Totals ------");
-    console.log("Total Users".padEnd(25, " "), totalUsers);
-    console.log("Unique Users".padEnd(25, " "), uniqueUsers, "\n");
   });
 
   process.exit(0);

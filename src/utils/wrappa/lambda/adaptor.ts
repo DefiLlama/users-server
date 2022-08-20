@@ -5,10 +5,10 @@ import type { AdaptorExport } from "../../adaptor";
 import fetch from "node-fetch";
 
 const BASE_URL =
-  "https://315jy324kl.execute-api.eu-central-1.amazonaws.com/prod";
+  "https://6tklng2o7b.execute-api.eu-central-1.amazonaws.com/prod";
 
 const runAdaptorLambda = async (
-  name: Chain,
+  name: string,
   date: Date,
   exports: AdaptorExport
 ) => {
