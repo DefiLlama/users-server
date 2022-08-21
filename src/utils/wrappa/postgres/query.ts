@@ -61,6 +61,13 @@ const queryFunctionCalls = async (
   functionNames: string[],
   blocks: number[]
 ) => {
+  // No functionNames means we cannot match anything, hence 0 users.
+  if (functionNames.length == 0)
+    return {
+      total_users: 0,
+      unique_users: 0,
+    } as IUserStats;
+
   return (
     await sql<IUserStats[]>`
     SELECT

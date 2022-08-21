@@ -32,6 +32,7 @@ const ORACLE = "Oracle";
 const CATEGORY_USER_EXPORTS = {
   [DEXES]: ["deposits", "withdrawals", "traders"],
   [LENDING]: ["borrows", "lendings"],
+  [LIQUID_STAKING]: ["deposits", "withdrawals"],
 };
 
 export {
