@@ -28,6 +28,7 @@ module.exports = {
     ],
   },
   resolve: {
+    mainFields: ["main", "browser"],
     symlinks: false,
     extensions: [".ts", ".js", ".json"],
     alias: {

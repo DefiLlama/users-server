@@ -1,14 +1,32 @@
 import type { Chain } from "@defillama/sdk/build/general";
 
-import fetch from "node-fetch";
+import { getProvider } from "@defillama/sdk/build/general";
 
-import sql from "./db";
+import {
+  queryBlocksOnDay,
+  queryFunctionCalls,
+  queryMissingFunctionNames,
+} from "./wrappa/postgres/query";
+import { CATEGORY_USER_EXPORTS } from "../helpers/categories";
+import { queryUserStats } from "./wrappa/postgres/query";
+import { addressToPSQLNative } from "./address";
+import { writeableSql } from "./db";
 
-type MaybePromise<T> = T | Promise<T>;
-export declare type AdaptorExport = Record<Chain, () => MaybePromise<string[]>>;
+interface IFunctionCall {
+  chain: Chain;
+  address: string;
+  functionNames: string[];
+  blocks: number[];
+}
+
+type MaybePromiseFunction<T> = () => T | Promise<T>;
+export declare type AdaptorExport = {
+  [k in Chain]: { [u: string]: IFunctionCall } & {
+    all: MaybePromiseFunction<string[]> | string[];
+  };
+} & { category: string };
 
 interface IUserStats {
-  day: Date;
   total_users: number;
   unique_users: number;
 }
@@ -30,136 +48,230 @@ const asyncForEach = async <T = any>(
   return Promise.resolve(data);
 };
 
-const queryUserStatsSql = (_chain: Chain, date: Date, addresses: Buffer[]) => {
-  const nextDay = new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate() + 1
-  );
-  const day = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-  // @ts-ignore
-  const toTimestamp = Math.floor(nextDay / 1000);
-  // @ts-ignore
-  const fromTimestamp = Math.floor(day / 1000);
-
-  const chain = _chain === "avax" ? "avalanche" : _chain;
-
-  return sql`
-    WITH blocks AS (
-      SELECT
-        timestamp,
-        number
-      FROM
-        ${sql(chain)}.blocks
-      WHERE
-        timestamp < to_timestamp(${toTimestamp})
-        AND timestamp >= to_timestamp(${fromTimestamp})
-    ),
-    txs AS (
-      SELECT
-        from_address AS "user",
-        timestamp
-      FROM
-        ${sql(chain)}.transactions
-        INNER JOIN blocks ON number = block_number
-      WHERE
-        to_address IN ${sql(addresses)}
-        AND success
-    )
-    SELECT
-      date_trunc('day', timestamp) AS "day",
-      count("user") AS "total_users",
-      count(DISTINCT "user") AS "unique_users"
-    FROM
-      txs
-    GROUP BY
-      1
-    `;
-};
-
-const queryUserStatsLambda = async (
-  chain: Chain,
-  date: Date,
-  addresses: Buffer[]
-) => {
-  return (
-    await fetch(
-      `https://315jy324kl.execute-api.eu-central-1.amazonaws.com/prod/run/adaptor/stats/${chain}?` +
-        new URLSearchParams({
-          addresses: addresses.map((x) => "0x" + x.toString("hex")),
-          day: date.toISOString().substring(0, 10),
-        })
-    )
-  ).json();
-};
-
 const storeUserStats = async (
   adaptor: string,
-  data: { [k: string]: Record<string, string> }
+  data: Record<Chain, Record<string, IUserStats>>,
+  day: Date
 ) => {
-  const values = Object.entries(data).map((x) =>
-    Object.assign({ adaptor, chain: x[0] }, x[1])
+  let allKeyExists = false;
+
+  const values = Object.entries(data).flatMap(([chain, _x]) =>
+    Object.entries(_x).map(([column, stats]) => {
+      if (column === "all") allKeyExists = true;
+      return { adaptor, day, chain, column_type: column, ...stats };
+    })
   );
 
-  return sql`INSERT INTO users.aggregate_data ${sql(values)}`;
+  if (!allKeyExists) throw new Error(`${adaptor} does not export an 'all' key`);
+
+  return writeableSql`INSERT INTO users.aggregate_data ${writeableSql(values)}`;
+};
+
+const verifyBlocks = async (chain: Chain, day: Date, blocks: number[]) => {
+  const provider = getProvider(chain);
+
+  // Newest block is the latest (the first in the array) due to the ordering
+  // of the block index in the PostgreSQL database.
+  const minBlock = blocks[blocks.length - 1];
+  const maxBlock = blocks[0];
+
+  if (maxBlock < minBlock)
+    throw new Error(`${chain}: ${maxBlock} and ${minBlock} wrong order?`);
+
+  const [minRes, maxRes] = (
+    await Promise.all([
+      provider.getBlock(minBlock),
+      provider.getBlock(maxBlock),
+    ])
+  ).map((x) => x.timestamp);
+
+  if (maxRes < minRes)
+    throw new Error(
+      `${chain}: ${maxBlock} and ${minBlock} wrong order for timestamp?`
+    );
+
+  const nextDay = new Date(
+    Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate() + 1)
+  );
+
+  const toTimestamp = Math.floor(nextDay.getTime() / 1000);
+  const fromTimestamp = Math.floor(day.getTime() / 1000);
+  const threshold = 60; // Max 60s deviation from expected timestamps.
+
+  if (toTimestamp < maxRes || fromTimestamp > minRes)
+    throw new Error(
+      `${chain}: ${minRes} ${maxBlock} are invalid comp to ${fromTimestamp} ${toTimestamp}`
+    );
+  else if (toTimestamp - maxRes > threshold)
+    throw new Error(`${chain}: UB ${toTimestamp} vs ${maxRes} above threshold`);
+  else if (minRes - fromTimestamp > threshold)
+    throw new Error(
+      `${chain}: LB ${fromTimestamp} vs ${minRes} above threshold`
+    );
 };
 
 const runAdaptor = async (
   name: string,
   date: Date,
-  { storeData } = { storeData: false }
-): Promise<Record<Chain, IUserStats>> => {
-  const adaptor: AdaptorExport = (await import(`./../adaptors/${name}`))
-    .default;
+  { storeData, ignoreChainRugs, adaptorExports, log } = {
+    storeData: false,
+    ignoreChainRugs: false,
+    adaptorExports: false,
+    log: console.error,
+  }
+): Promise<Record<Chain, Record<string, IUserStats>>> => {
+  const adaptor: AdaptorExport = adaptorExports
+    ? adaptorExports
+    : (await import(`./../adaptors/${name}`)).default;
 
+  const chains = Object.keys(adaptor).filter(
+    (x) => x !== "category"
+  ) as Chain[];
+  const exportKeys: string[] =
+    CATEGORY_USER_EXPORTS?.[
+      adaptor.category as keyof typeof CATEGORY_USER_EXPORTS
+    ] || [];
+  const day = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  );
   const promises: Promise<any>[] = [];
-  const chains = Object.keys(adaptor) as Chain[];
-  const day = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
   await asyncForEach(chains, async (chain) => {
-    // TODO(blaze): validate addresses
-    const addresses = (await adaptor[chain]()).map((x) =>
-      Buffer.from(x.slice(2), "hex")
+    const blocks = await queryBlocksOnDay(chain, day);
+    if (blocks.length == 0) {
+      const msg = `db rugged for date ${day} for chain ${chain}`;
+
+      if (ignoreChainRugs) return log(msg);
+      else throw new Error(msg);
+    }
+
+    // Verify we are not missing a huge chunk of blocks, this may happen if
+    // the indexer is behind or just has not fully indexed that day.
+    if (ignoreChainRugs) {
+      try {
+        await verifyBlocks(chain, day, blocks);
+      } catch (e) {
+        return log(e);
+      }
+    } else {
+      await verifyBlocks(chain, day, blocks);
+    }
+
+    let pushedProm = false;
+    let prom: Promise<any>;
+    let addresses: Buffer[];
+
+    const userExports = adaptor[chain];
+    if (exportKeys.length == Object.keys(userExports).length + 1)
+      throw new Error(
+        `${name} does not export correct amount of keys, expected: ${exportKeys}
+        got: ${JSON.stringify(userExports)}
+        `
+      );
+
+    if (typeof userExports.all === "undefined")
+      throw new Error(`${name} does not export an 'all' key for ${chain}`);
+    else if (typeof userExports.all === "function")
+      addresses = (await userExports.all()).map((x) => addressToPSQLNative(x));
+    else addresses = userExports.all.map((x) => addressToPSQLNative(x));
+
+    const missingFns = await queryMissingFunctionNames(
+      chain,
+      addresses,
+      blocks
     );
 
-    promises.push(queryUserStats(chain, date, addresses));
+    if (missingFns !== 0) {
+      log(`${name} has ${missingFns} missing decoded txs on ${chain}.`);
+      log(
+        `This MAY affect categorized user metrics (if you rely on 'functionNames')\n`
+      );
+    }
+
+    prom = queryUserStats(chain, addresses, blocks);
+
+    if (exportKeys !== undefined && Object.keys(userExports).length > 1) {
+      const proms = exportKeys.flatMap((key) => {
+        if (key === "all") return;
+
+        const exports = userExports[
+          key as keyof typeof userExports
+        ] as IFunctionCall;
+
+        return queryFunctionCalls(
+          chain,
+          addressToPSQLNative(exports.address),
+          exports.functionNames,
+          blocks
+        );
+      });
+
+      proms.push(prom!);
+      pushedProm = true;
+
+      promises.push(Promise.all(proms));
+    }
+
+    if (!pushedProm) promises.push(Promise.all([prom!]));
   });
 
-  const resolved = await Promise.all(promises);
-  const res = Object.fromEntries(
-    chains.map((_, i) => {
-      // Return a default value.
-      if (!resolved[i][0])
-        return [chains[i], { day, total_users: 0, unique_users: 0 }];
+  if (promises.length === 0) throw new Error(`adaptor ${name} rugged exports`);
 
-      return [chains[i], resolved[i][0]];
+  const resolved = await Promise.all(promises);
+
+  const res = Object.fromEntries(
+    resolved.map((chainData, i) => {
+      if (exportKeys !== undefined && Array.isArray(chainData)) {
+        // Hack to make deep copy of `exportKeys`.
+        let keys: string[] = JSON.parse(JSON.stringify(exportKeys));
+
+        if (chainData.length > exportKeys.length + 1)
+          throw new Error(
+            `incorrect export lengths: ${resolved}, expected: ${exportKeys.length}`
+          );
+        else if (chainData.length == exportKeys.length + 1)
+          // The `all` export is always last in the promise array.
+          keys.push("all");
+
+        const map = keys.map((key, j) => {
+          if (!chainData[j]) return [key, { total_users: 0, unique_users: 0 }];
+
+          return [key, chainData[j]];
+        });
+
+        return [chains[i], Object.fromEntries(map)];
+      } else {
+        return [
+          chains[i],
+          { all: chainData || { total_users: 0, unique_users: 0 } },
+        ];
+      }
+    })
+  ) as Record<Chain, Record<string, IUserStats>>;
+
+  // Fix to make sure types are what we expect them to be,
+  Object.values(res).map((x) =>
+    Object.values(x).map((data) => {
+      data.unique_users = Number(data.unique_users);
+      data.total_users = Number(data.total_users);
     })
   );
 
-  if (storeData) await storeUserStats(name, res);
+  if (storeData) await storeUserStats(name, res, day);
 
-  // Fix to make sure types are what we expect them to be,
-  Object.values(res).map((data) => {
-    data.unique_users = Number(data.unique_users);
-    data.total_users = Number(data.total_users);
-    data.day = new Date(data.day);
-  });
-
-  return res as Record<Chain, IUserStats>;
-};
-
-const queryUserStats = (chain: Chain, day: Date, addresses: Buffer[]) => {
-  return process.env.MODE === "lambda"
-    ? queryUserStatsSql(chain, day, addresses)
-    : queryUserStatsLambda(chain, day, addresses);
+  return res as Record<Chain, Record<string, IUserStats>>;
 };
 
 /*
 (async () => {
-  console.log(await runAdaptor("llamapay", new Date("2022-07-01")));
-  await sql.end({ timeout: 5 });
+  console.log(
+    await runAdaptor("sushiswap", new Date("2022-06-21"), {
+      storeData: false,
+      ignoreChainRugs: true,
+    })
+  );
+  await writeableSql.end({ timeout: 5 });
   process.exit();
 })(); */
 
-export { runAdaptor, queryUserStats };
+export { runAdaptor, asyncForEach };

@@ -1,5 +1,5 @@
 import { errorResponse, successResponse } from "../utils/lambda-response";
-import { queryUserStats } from "../utils/query";
+import { queryUserStats } from "../utils/wrappa/postgres/query";
 import wrap from "../utils/wrap";
 
 export default wrap(async (event) => {

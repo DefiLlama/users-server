@@ -1,17 +1,33 @@
 import { errorResponse, successResponse } from "../utils/lambda-response";
-import { queryUserStats } from "../utils/adaptor";
+import { runAdaptor } from "../utils/adaptor";
 import wrap from "../utils/wrap";
 
 export default wrap(async (event) => {
-  const chain = event.pathParameters?.chain;
-  if (!chain) return errorResponse({ message: "missing chain name" });
+  const exports = JSON.parse(event.body);
+  const name = event.pathParameters.name;
 
   let day = event.queryStringParameters?.day;
   day = day ? new Date(day) : new Date();
 
-  let addresses = event.queryStringParameters?.addresses;
-  if (!addresses) return errorResponse({ message: "missing addresses" });
-  addresses = addresses.split(",").map((x) => Buffer.from(x.slice(2), "hex"));
+  const warnings = [];
+  const logger = (msg) => {
+    warnings.push(msg);
+    console.error(msg);
+  };
 
-  return successResponse(await queryUserStats(chain, day, addresses));
+  try {
+    return successResponse({
+      ...(await runAdaptor(name, day, {
+        ignoreChainRugs: true,
+        adaptorExports: exports,
+        log: logger,
+      })),
+      warnings: warnings.join("\n"),
+    });
+  } catch (e) {
+    return errorResponse({
+      message: e.toString(),
+      warnings: warnings.join("\n"),
+    });
+  }
 });
