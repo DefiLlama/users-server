@@ -113,12 +113,12 @@ const verifyBlocks = async (chain: Chain, day: Date, blocks: number[]) => {
 const runAdaptor = async (
   name: string,
   date: Date,
-  { storeData, ignoreChainRugs, adaptorExports, log } = {
-    storeData: false,
-    ignoreChainRugs: false,
-    adaptorExports: false,
-    log: console.error,
-  }
+  {
+    storeData = false,
+    ignoreChainRugs = false,
+    adaptorExports = false,
+    log = console.error,
+  } = {}
 ): Promise<Record<Chain, Record<string, IUserStats>>> => {
   const adaptor: AdaptorExport = adaptorExports
     ? adaptorExports
@@ -186,6 +186,10 @@ const runAdaptor = async (
       log(
         `This MAY affect categorized user metrics (if you rely on 'functionNames')\n`
       );
+
+      // TODO: throw err?
+      // Does exports rely on 'functionNames'?
+      // if (Object.keys(userExports).length > 1 && storeData)
     }
 
     prom = queryUserStats(chain, addresses, blocks);

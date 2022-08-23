@@ -1,5 +1,5 @@
 import { errorResponse, successResponse } from "../utils/lambda-response";
-import { queryUserStats } from "../utils/wrappa/postgres/query";
+import { queryStoredUserStats } from "../utils/wrappa/postgres/query";
 import wrap from "../utils/wrap";
 
 export default wrap(async (event) => {
@@ -11,5 +11,5 @@ export default wrap(async (event) => {
   let day = event.queryStringParameters?.day;
   if (day) day = new Date(day);
 
-  return successResponse(await queryUserStats(adaptor, { day, chain }));
+  return successResponse(await queryStoredUserStats(adaptor, { day, chain }));
 });

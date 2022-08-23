@@ -116,7 +116,7 @@ const queryMissingFunctionNames = async (
   addresses: Buffer[],
   blocks: number[]
 ) => {
-  return (
+  return +(
     await sql<{ count: number }[]>`
     SELECT
       count(*)

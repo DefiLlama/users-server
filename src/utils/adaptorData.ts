@@ -27,6 +27,9 @@ const getAdaptors = async () => {
       const chains = Object.keys(adaptorImports[i]);
 
       const difference = chains.filter((x) => !SUPPORTED_CHAINS.includes(x));
+      const idx = difference.indexOf("category");
+      if (idx > -1) difference.splice(idx, 1);
+
       if (difference.length > 0) {
         console.log(
           "Unsupported export chain keys found",
