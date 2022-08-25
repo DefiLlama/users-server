@@ -131,10 +131,19 @@ const queryMissingFunctionNames = async (
   )[0].count;
 };
 
+const queryStoredChainStats = async (chain: Chain, { day }: { day?: Date }) => {
+  return sql<IUserStatsResponse[]>`
+    SELECT * FROM
+      ${sql(chain)}.aggregate_data
+    ${day ? sql`WHERE day=${day}` : sql``}
+  `;
+};
+
 export {
   queryStoredUserStats,
   queryUserStats,
   queryBlocksOnDay,
   queryFunctionCalls,
   queryMissingFunctionNames,
+  queryStoredChainStats,
 };

@@ -13,3 +13,27 @@ CREATE TABLE IF NOT EXISTS users.aggregate_data (
 );
 
 CREATE INDEX IF NOT EXISTS aggregate_data_adaptor_idx ON users.aggregate_data (adaptor);
+
+CREATE TABLE IF NOT EXISTS ethereum.aggregate_data (
+    day date PRIMARY KEY,
+    sticky_users integer,
+    unique_users integer,
+    total_users integer,
+    new_users integer
+);
+
+DO $$
+DECLARE
+    _chains varchar := (
+        SELECT
+            string_agg(chain, ',')
+        FROM
+            chains
+        WHERE
+            chain != 'ethereum'
+            AND is_evm);
+BEGIN
+    PERFORM
+        cp_table_schema_many ('ethereum', 'aggregate_data', _chains);
+END
+$$;

@@ -1,3 +1,5 @@
+org: blazewastaken
+app: defillama-users-server
 service: users-server
 
 package:
@@ -61,6 +63,12 @@ functions:
     events:
       - http:
           path: /stats/{adaptor}
+          method: get
+  getChainStats:
+    handler: src/handlers/getChainStats.default
+    events:
+      - http:
+          path: /chain/{chain}
           method: get
 
 resources:

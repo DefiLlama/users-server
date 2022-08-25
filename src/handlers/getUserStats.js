@@ -3,9 +3,7 @@ import { queryStoredUserStats } from "../utils/wrappa/postgres/query";
 import wrap from "../utils/wrap";
 
 export default wrap(async (event) => {
-  const adaptor = event.pathParameters?.adaptor;
-  if (!adaptor) return errorResponse({ message: "missing adaptor name" });
-
+  const adaptor = event.pathParameters.adaptor;
   const chain = event.queryStringParameters?.chain;
 
   let day = event.queryStringParameters?.day;
