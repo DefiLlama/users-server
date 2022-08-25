@@ -25,8 +25,8 @@ INSERT INTO avax.aggregate_data
 SELECT
     txs."day",
     NULL,
-    count("user"),
     count(DISTINCT "user"),
+    count("user"),
     COALESCE(new_users.count, 0)
 FROM
     txs
