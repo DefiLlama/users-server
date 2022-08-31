@@ -8,12 +8,12 @@ interface IUserStatsResponse {
   chain: Chain;
   sticky_users?: number;
   unique_users: number;
-  total_users: number;
+  total_txs: number;
   new_users?: number;
 }
 
 interface IUserStats {
-  total_users: number;
+  total_txs: number;
   unique_users: number;
 }
 
@@ -64,14 +64,14 @@ const queryFunctionCalls = async (
   // No functionNames means we cannot match anything, hence 0 users.
   if (functionNames.length == 0)
     return {
-      total_users: 0,
+      total_txs: 0,
       unique_users: 0,
     } as IUserStats;
 
   return (
     await sql<IUserStats[]>`
     SELECT
-      count("user") AS "total_users",
+      count("user") AS "total_txs",
       count(DISTINCT "user") AS "unique_users"
     FROM (
       SELECT
@@ -95,7 +95,7 @@ const queryUserStats = async (
   return (
     await sql<IUserStats[]>`
     SELECT
-      count("user") AS "total_users",
+      count("user") AS "total_txs",
       count(DISTINCT "user") AS "unique_users"
     FROM (
       SELECT

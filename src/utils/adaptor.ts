@@ -27,7 +27,7 @@ export declare type AdaptorExport = {
 } & { category: string };
 
 interface IUserStats {
-  total_users: number;
+  total_txs: number;
   unique_users: number;
 }
 
@@ -238,7 +238,7 @@ const runAdaptor = async (
           keys.push("all");
 
         const map = keys.map((key, j) => {
-          if (!chainData[j]) return [key, { total_users: 0, unique_users: 0 }];
+          if (!chainData[j]) return [key, { total_txs: 0, unique_users: 0 }];
 
           return [key, chainData[j]];
         });
@@ -247,7 +247,7 @@ const runAdaptor = async (
       } else {
         return [
           chains[i],
-          { all: chainData || { total_users: 0, unique_users: 0 } },
+          { all: chainData || { total_txs: 0, unique_users: 0 } },
         ];
       }
     })
@@ -257,7 +257,7 @@ const runAdaptor = async (
   Object.values(res).map((x) =>
     Object.values(x).map((data) => {
       data.unique_users = Number(data.unique_users);
-      data.total_users = Number(data.total_users);
+      data.total_txs = Number(data.total_txs);
     })
   );
 

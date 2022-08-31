@@ -54,7 +54,7 @@ import { asyncForEach } from "./src/utils/adaptor";
       console.log(`--- ${chain} ---`);
       for (const [column, data] of Object.entries(stats)) {
         console.log(`- ${column} -`);
-        console.log(" Total Users".padEnd(25, " "), data.total_users);
+        console.log(" Total Transactions".padEnd(25, " "), data.total_txs);
         console.log(" Unique Users".padEnd(25, " "), data.unique_users);
       }
     }

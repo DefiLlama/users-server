@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS users.aggregate_data (
     column_type varchar DEFAULT 'all',
     sticky_users integer,
     unique_users integer,
-    total_users integer,
+    total_txs integer,
     new_users integer,
     PRIMARY KEY (adaptor, column_type, chain, day)
 );
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS ethereum.aggregate_data (
     day date PRIMARY KEY,
     sticky_users integer,
     unique_users integer,
-    total_users integer,
+    total_txs integer,
     new_users integer
 );
 
