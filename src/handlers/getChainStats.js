@@ -1,6 +1,6 @@
 import {
   queryStoredChainStats,
-  queryAllProtocolsOnChainStats,
+  queryAllProtocolsStats,
 } from "../utils/wrappa/postgres/query";
 import { successResponse } from "../utils/lambda-response";
 import wrap from "../utils/wrap";
@@ -13,7 +13,7 @@ export default wrap(async (event) => {
 
   const [chart, protocols] = await Promise.all([
     queryStoredChainStats(chain, { day }),
-    queryAllProtocolsOnChainStats(chain, { day }),
+    queryAllProtocolsStats({ chain, day }),
   ]);
 
   return successResponse({ chart, protocols });

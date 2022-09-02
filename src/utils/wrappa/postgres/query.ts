@@ -146,10 +146,13 @@ const queryStoredChainStats = async (chain: Chain, { day }: { day?: Date }) => {
   `;
 };
 
-const queryAllProtocolsOnChainStats = (
-  chain: Chain,
-  { day }: { day?: Date }
-) => {
+const queryAllProtocolsStats = ({
+  chain,
+  day,
+}: {
+  chain?: Chain;
+  day?: Date;
+}) => {
   day = day ? day : new Date();
 
   // TODO: Optimization of the query may be needed.
@@ -157,25 +160,29 @@ const queryAllProtocolsOnChainStats = (
     WITH today AS (
       SELECT
         adaptor,
-        total_txs,
-        unique_users
+        sum(total_txs) AS total_txs,
+        sum(unique_users) AS unique_users
       FROM
         users.aggregate_data
       WHERE
-        chain = ${chain}
+        column_type = 'all'
+        ${chain ? sql`AND chain=${chain}` : sql``}
         AND day = ${day}::date
-        AND column_type = 'all'
+      GROUP BY
+        adaptor
     ),
     yesterday AS (
       SELECT
         adaptor,
-        total_txs
+        sum(total_txs) AS total_txs
       FROM
         users.aggregate_data
       WHERE
-        chain = ${chain}
+        column_type = 'all'
+        ${chain ? sql`AND chain=${chain}` : sql``}
         AND day = ${day}::date - interval '1 day'
-        AND column_type = 'all'
+      GROUP BY
+        adaptor
     )
 
     SELECT
@@ -196,5 +203,5 @@ export {
   queryFunctionCalls,
   queryMissingFunctionNames,
   queryStoredChainStats,
-  queryAllProtocolsOnChainStats,
+  queryAllProtocolsStats,
 };
