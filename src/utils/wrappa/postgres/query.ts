@@ -1,4 +1,5 @@
 import type { Chain } from "@defillama/sdk/build/general";
+import { SUPPORTED_CHAINS } from "../../constants";
 
 import { sql } from "../../db";
 
@@ -22,6 +23,14 @@ interface IProtocolStats {
   "24hourTxs": number;
   "24hourUsers": number;
   change_1d: number; // signed float
+}
+
+interface IChainStatsResponse {
+  day: Date;
+  sticky_users?: number;
+  unique_users: number;
+  total_txs: number;
+  new_users: number;
 }
 
 const queryStoredUserStats = async (
@@ -139,11 +148,19 @@ const queryMissingFunctionNames = async (
 };
 
 const queryStoredChainStats = async (chain: Chain, { day }: { day?: Date }) => {
-  return sql<IUserStatsResponse[]>`
+  return sql<IChainStatsResponse[]>`
     SELECT * FROM
       ${sql(chain)}.aggregate_data
     ${day ? sql`WHERE day=${day}` : sql``}
   `;
+};
+
+const queryStoredManyChainsStats = () => {
+  const query = SUPPORTED_CHAINS.map(
+    (chain) => `SELECT * FROM ${chain}.aggregate_data`
+  ).join(" UNION ALL ");
+
+  return sql.unsafe<IChainStatsResponse[]>(query);
 };
 
 const queryAllProtocolsStats = ({
@@ -204,4 +221,5 @@ export {
   queryMissingFunctionNames,
   queryStoredChainStats,
   queryAllProtocolsStats,
+  queryStoredManyChainsStats,
 };
