@@ -17,6 +17,13 @@ interface IUserStats {
   unique_users: number;
 }
 
+interface IProtocolStats {
+  adaptor: string;
+  "24hourTxs": number;
+  "24hourUsers": number;
+  change_1d: number; // signed float
+}
+
 const queryStoredUserStats = async (
   adaptor: string,
   { day, chain }: { day?: Date; chain?: Chain }
@@ -139,6 +146,49 @@ const queryStoredChainStats = async (chain: Chain, { day }: { day?: Date }) => {
   `;
 };
 
+const queryAllProtocolsOnChainStats = (
+  chain: Chain,
+  { day }: { day?: Date }
+) => {
+  day = day ? day : new Date();
+
+  // TODO: Optimization of the query may be needed.
+  return sql<IProtocolStats[]>`
+    WITH today AS (
+      SELECT
+        adaptor,
+        total_txs,
+        unique_users
+      FROM
+        users.aggregate_data
+      WHERE
+        chain = ${chain}
+        AND day = ${day}::date
+        AND column_type = 'all'
+    ),
+    yesterday AS (
+      SELECT
+        adaptor,
+        total_txs
+      FROM
+        users.aggregate_data
+      WHERE
+        chain = ${chain}
+        AND day = ${day}::date - interval '1 day'
+        AND column_type = 'all'
+    )
+
+    SELECT
+      t.adaptor,
+      t.total_txs AS "24hourTxs",
+      t.unique_users AS "24hoursUsers",
+      (((t.total_txs - y.total_txs)::float / y.total_txs)) * 100 AS change_1d
+    FROM
+      today t
+      LEFT JOIN yesterday y ON t.adaptor = y.adaptor
+  `;
+};
+
 export {
   queryStoredUserStats,
   queryUserStats,
@@ -146,4 +196,5 @@ export {
   queryFunctionCalls,
   queryMissingFunctionNames,
   queryStoredChainStats,
+  queryAllProtocolsOnChainStats,
 };
