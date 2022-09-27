@@ -10,7 +10,7 @@ import {
 import { CATEGORY_USER_EXPORTS } from "../helpers/categories";
 import { queryUserStats } from "./wrappa/postgres/query";
 import { addressToPSQLNative } from "./address";
-import { writeableSql } from "./db";
+import sql from "./db";
 
 interface IFunctionCall {
   chain: Chain;
@@ -64,7 +64,7 @@ const storeUserStats = async (
 
   if (!allKeyExists) throw new Error(`${adaptor} does not export an 'all' key`);
 
-  return writeableSql`INSERT INTO users.aggregate_data ${writeableSql(values)}`;
+  return sql`INSERT INTO users.aggregate_data ${sql(values)}`;
 };
 
 const verifyBlocks = async (chain: Chain, day: Date, blocks: number[]) => {

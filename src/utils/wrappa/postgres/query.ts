@@ -1,7 +1,7 @@
 import type { Chain } from "@defillama/sdk/build/general";
 import { SUPPORTED_CHAINS } from "../../constants";
 
-import { sql } from "../../db";
+import sql from "../../db";
 
 interface IUserStatsResponse {
   adaptor: string;
@@ -40,7 +40,7 @@ const queryStoredUserStats = async (
   return sql<IUserStatsResponse[]>`
     SELECT * FROM
       users.aggregate_data
-    WHERE
+    WHERE 
       adaptor = ${adaptor}
     ${day ? sql`AND day=${day}` : sql``}
     ${chain ? sql`AND chain=${chain}` : sql``}
