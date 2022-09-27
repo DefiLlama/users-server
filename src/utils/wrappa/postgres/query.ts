@@ -170,7 +170,9 @@ const queryAllProtocolsStats = ({
   chain?: Chain;
   day?: Date;
 }) => {
-  day = day ? day : new Date();
+  // We update all adaptors at 00:00 UTC for the day before's data, so latest
+  // data for adaptors will always be yesterday (1 day time lag).
+  day = day ? day : new Date(Date.now() - 864e5);
 
   // TODO: Optimization of the query may be needed.
   return sql<IProtocolStats[]>`
@@ -206,7 +208,13 @@ const queryAllProtocolsStats = ({
       t.adaptor,
       t.total_txs AS "24hourTxs",
       t.unique_users AS "24hoursUsers",
-      (((t.total_txs - y.total_txs)::float / y.total_txs)) * 100 AS change_1d
+      y.total_txs,
+      CASE
+        WHEN y.total_txs = 0
+          THEN t.total_txs
+        ELSE
+          (t.total_txs - y.total_txs)::float / y.total_txs * 100
+      END AS change_1d
     FROM
       today t
       LEFT JOIN yesterday y ON t.adaptor = y.adaptor
