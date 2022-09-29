@@ -31,4 +31,19 @@ function wrap(
   return handler;
 }
 
-export default wrap;
+function wrapScheduledLambda(
+  lambdaFunc: (event: any, context: AWSLambda.Context) => Promise<void>
+): (
+  event: void,
+  context?: any,
+  callback?: any
+) => Promise<void | undefined> | void {
+  if (process.env.stage !== "prod") {
+    return () => {
+      console.log("This lambda is getting ignored, stage is not prod");
+    };
+  }
+  return lambdaFunc;
+}
+
+export { wrap, wrapScheduledLambda };

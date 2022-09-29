@@ -1,6 +1,6 @@
+import { wrapScheduledLambda } from "../utils/wrap";
 import { runAdaptor } from "../utils/adaptor";
 import getAdaptors from "../utils/adaptorData";
-import wrap from "../utils/wrap";
 
 const handler = async (event) => {
   const adaptors = await getAdaptors();
@@ -11,7 +11,11 @@ const handler = async (event) => {
 
   const res = await Promise.allSettled(
     Object.keys(adaptors).map(([adaptor, adaptorExports]) =>
-      runAdaptor(adaptor, yesterday, { storeData: true, ignoreChainRugs: true, adaptorExports })
+      runAdaptor(adaptor, yesterday, {
+        storeData: true,
+        ignoreChainRugs: true,
+        adaptorExports,
+      })
     )
   );
 
@@ -19,5 +23,4 @@ const handler = async (event) => {
   console.log(res.length, Object.keys(adaptors).length);
 };
 
-export default wrap(handler);
-
+export default wrapScheduledLambda(handler);

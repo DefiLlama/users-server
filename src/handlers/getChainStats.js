@@ -3,7 +3,7 @@ import {
   queryAllProtocolsStats,
 } from "../utils/wrappa/postgres/query";
 import { successResponse } from "../utils/lambda-response";
-import wrap from "../utils/wrap";
+import { wrap } from "../utils/wrap";
 
 export default wrap(async (event) => {
   const chain = event.pathParameters.chain;

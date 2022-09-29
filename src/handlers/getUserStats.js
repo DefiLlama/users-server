@@ -1,6 +1,6 @@
-import { errorResponse, successResponse } from "../utils/lambda-response";
 import { queryStoredUserStats } from "../utils/wrappa/postgres/query";
-import wrap from "../utils/wrap";
+import { successResponse } from "../utils/lambda-response";
+import { wrap } from "../utils/wrap";
 
 export default wrap(async (event) => {
   const adaptor = event.pathParameters.adaptor;

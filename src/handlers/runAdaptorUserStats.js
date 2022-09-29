@@ -1,6 +1,6 @@
 import { errorResponse, successResponse } from "../utils/lambda-response";
 import { runAdaptor } from "../utils/adaptor";
-import wrap from "../utils/wrap";
+import { wrap } from "../utils/wrap";
 
 export default wrap(async (event) => {
   const exports = JSON.parse(event.body);

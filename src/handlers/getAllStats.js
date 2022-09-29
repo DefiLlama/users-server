@@ -4,7 +4,7 @@ import {
 } from "../utils/wrappa/postgres/query";
 import { successResponse } from "../utils/lambda-response";
 import { SUPPORTED_CHAINS } from "../utils/constants";
-import wrap from "../utils/wrap";
+import { wrap } from "../utils/wrap";
 
 export default wrap(async (event) => {
   let day = event.queryStringParameters?.day;
