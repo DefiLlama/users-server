@@ -10,7 +10,7 @@ const handler = async (event) => {
   const yesterday = new Date(Date.now() - 864e5);
 
   const res = await Promise.allSettled(
-    Object.keys(adaptors).map(([adaptor, adaptorExports]) =>
+    Object.keys(adaptors).entries(([adaptor, adaptorExports]) =>
       runAdaptor(adaptor, yesterday, {
         storeData: true,
         ignoreChainRugs: true,

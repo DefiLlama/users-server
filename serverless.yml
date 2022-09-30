@@ -48,6 +48,7 @@ provider:
   environment:
     PSQL_URL: ${env:PSQL_URL}
     MODE: lambda
+    stage: ${self:custom.stage}
 
 functions:
   runAdaptorUserStats:
